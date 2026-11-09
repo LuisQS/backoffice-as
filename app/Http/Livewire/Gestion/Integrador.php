@@ -512,7 +512,7 @@ class Integrador extends Component
                     }
                 }else{
                     $doc = substr($linea,-8);
-                    $oCliente = Clinte::where('numeroDocumentoIdentidad',$doc)->first();
+                    $oCliente = Cliente::where('numeroDocumentoIdentidad',$doc)->first();
                     if ($oCliente) {
                         $this->idCliente = $oCliente->id;
                         $this->idTipoFacturacion = $oCliente->tipoFacturacion;

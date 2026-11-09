@@ -29,6 +29,7 @@ class ConcarExportService
         '07' => 'NC', 
         '08' => 'ND', 
         'RH' => 'RH', 
+        
     ];
 
     public function generate(array $comprasIds, string $fechaInicio, string $fechaFin): string

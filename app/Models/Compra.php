@@ -23,6 +23,10 @@ class Compra extends Model
         'inafecto',
         'igv',
         'montoDetraccion',
+        'numero_constancia_detraccion', // <-- NUEVO
+        'fecha_pago_detraccion',        // <-- NUEVO
+        'idCuentaContable',             // <-- FALTABA EN EDICIÓN
+        'idSubdiario',                  // <-- FALTABA EN EDICIÓN
         'total',
         'totalLetras',
         'observacion',
@@ -37,6 +41,8 @@ class Compra extends Model
     // **AÑADE ESTA LÍNEA** o modifica si ya tienes la propiedad $casts
     protected $casts = [
         'fechaEmision' => 'datetime',
+        'fechaVencimiento' => 'date',
+        'fecha_pago_detraccion' => 'date',
     ];
 
     // Relaciones

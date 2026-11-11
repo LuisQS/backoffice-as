@@ -10,6 +10,8 @@ use App\Models\TipoDocumento;
 use App\Models\Proveedor;
 use App\Models\Cliente;
 use App\Models\Estado;
+use App\Models\CuentaContable;   // <-- NUEVO
+use App\Models\Subdiario;        // <-- NUEVO
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -19,10 +21,9 @@ class EditCompra extends Component
 {
     use WithFileUploads;
 
-    // Propiedad para la compra que se va a editar
-    // public Compra $compra;
+    public $compra;
 
-    // Propiedades para los campos de la tabla 'compras' (los mismos que CreateCompra)
+    // Propiedades para los campos de la tabla 'compras'
     public $tipoDocumento;
     public $serie;
     public $numero;
@@ -40,27 +41,28 @@ class EditCompra extends Component
     public $observacion;
     public $pdf_path_existente; 
     public $pdfFile;
+    
+    // <-- NUEVO: Propiedades para los campos contables y de detracción
+    public $idCuentaContable;
+    public $idSubdiario;
+    public $numero_constancia_detraccion;
+    public $fecha_pago_detraccion;
 
-    // Propiedad para los detalles de la compra (lista de detalles ya agregados)
     public $detalles = [];
     public $tasaIGV;
 
-    // Propiedades temporales para el detalle que se está agregando/editando en el modal
     public $currentDetalle = [
-        'id'            => null, // Para saber si es un detalle existente o nuevo
+        'id'            => null,
         'cantidad'      => 1,
         'unidadMedida'  => '',
         'descripcion'   => '',
         'valorUnitario' => 0,
         'afectoIgv'     => true,
-        'estado'        => 1, // Puedes predefinir el ID del estado 'Activo'
+        'estado'        => 1,
     ];
-    public $editingDetalleIndex = null; // Para saber qué índice de detalle se está editando
-
-    // Para controlar la visibilidad del modal
+    public $editingDetalleIndex = null;
     public $showDetalleModal = false;
 
-    // Propiedades para los selects (las mismas que CreateCompra)
     public $tiposDocumento;
     public $proveedores;
     public $clientes;
@@ -76,14 +78,16 @@ class EditCompra extends Component
         'USD' => 'Dólares (USD)',
     ];
 
-    // Livewire 2.x listeners (mismos que CreateCompra)
+    // <-- NUEVO: Listas para los selects de cuentas y subdiarios
+    public $cuentasContables;
+    public $subdiarios;
+
     protected $listeners = [
         'detalle-updated' => 'updateDetalleFromChild',
-        'show-detalle-modal', // Necesario para el push/popstate si se quiere interacción con el historial
+        'show-detalle-modal',
         'hide-detalle-modal'
     ];
 
-    // Reglas de validación para el formulario principal de compra (las mismas que CreateCompra)
     protected $rules = [
         'tipoDocumento'    => 'required|exists:tipo_documentos,id',
         'serie'            => 'required|string|max:10',
@@ -96,9 +100,13 @@ class EditCompra extends Component
         'moneda'           => 'required|string|in:PEN,USD',
         'observacion'      => 'nullable|string|max:500',
         'pdfFile'          => 'nullable|mimes:pdf|max:5120',
+        // <-- NUEVO: Reglas de validación para los nuevos campos
+        'idCuentaContable' => 'nullable|exists:cuenta_contables,id',
+        'idSubdiario'      => 'nullable|exists:subdiarios,id',
+        'numero_constancia_detraccion' => 'nullable|string|max:50',
+        'fecha_pago_detraccion' => 'nullable|date',
     ];
 
-    // Reglas de validación para el detalle en el modal (las mismas que CreateCompra)
     protected $currentDetalleRules = [
         'currentDetalle.cantidad'      => 'required|numeric|min:1',
         'currentDetalle.unidadMedida'  => 'required|string|max:50',
@@ -106,7 +114,6 @@ class EditCompra extends Component
         'currentDetalle.valorUnitario' => 'required|numeric|min:0',
     ];
 
-    // Mensajes de validación personalizados (los mismos que CreateCompra)
     protected $messages = [
         'tipoDocumento.required' => 'El tipo de documento es obligatorio.',
         'idProveedor.required'   => 'El proveedor es obligatorio.',
@@ -118,15 +125,13 @@ class EditCompra extends Component
         'pdfFile.max'   => 'El tamaño máximo permitido para el PDF es 5MB.',
     ];
 
-    // EL MÉTODO MOUNT ES CLAVE AQUÍ PARA CARGAR LA COMPRA
     public function mount($compra)
     {
         $this->tasaIGV = config('taxes.igv_rate');
 
         $compra = Compra::findOrFail($compra);
-        $this->compra = $compra; // Inyecta la compra directamente
+        $this->compra = $compra;
 
-        // Cargar datos de la compra en las propiedades del componente
         $this->tipoDocumento = $compra->tipoDocumento;
         $this->serie = $compra->serie;
         $this->numero = $compra->numero;
@@ -134,7 +139,7 @@ class EditCompra extends Component
         $this->idCliente = $compra->idCliente;
         $this->numeroFile = $compra->numeroFile;
         $this->formaPago = $compra->formaPago;
-        $this->fechaEmision = $compra->fechaEmision->format('Y-m-d'); // Formatear para el input date
+        $this->fechaEmision = $compra->fechaEmision ? $compra->fechaEmision->format('Y-m-d') : null;
         $this->moneda = $compra->moneda;
         $this->subTotal = $compra->subTotal;
         $this->inafecto = $compra->inafecto;
@@ -144,20 +149,25 @@ class EditCompra extends Component
         $this->observacion = $compra->observacion;
         $this->pdf_path_existente = $compra->pdf_path;
 
-        // Cargar los detalles de la compra
-        // Asegurarse de que los detalles se carguen como arrays asociativos para la edición
+        // <-- NUEVO: Cargar los valores de los nuevos campos
+        $this->idCuentaContable = $compra->idCuentaContable;
+        $this->idSubdiario = $compra->idSubdiario;
+        $this->numero_constancia_detraccion = $compra->numero_constancia_detraccion;
+        $this->fecha_pago_detraccion = $compra->fecha_pago_detraccion ? $compra->fecha_pago_detraccion->format('Y-m-d') : null;
+
         $this->detalles = $compra->detalles->map(function($detalle) {
             return $detalle->toArray();
         })->toArray();
 
-
-        // Cargar datos para los selects (igual que CreateCompra)
         $this->tiposDocumento = TipoDocumento::all();
         $this->proveedores = Proveedor::all();
         $this->clientes = Cliente::orderBy('razonSocial')->get();
         $this->estados = Estado::all();
 
-        // Calcular totales al cargar (aunque ya vienen de la DB)
+        // <-- NUEVO: Cargar listas para los selects de cuentas y subdiarios (asumiendo idEstado = 1 para Activo)
+        $this->cuentasContables = CuentaContable::where('idEstado', 1)->orderBy('cuenta')->get();
+        $this->subdiarios = Subdiario::where('idEstado', 1)->orderBy('codigo')->get();
+
         $this->calculateTotals();
     }
 
@@ -165,34 +175,26 @@ class EditCompra extends Component
     {
         $this->subTotal = 0;
         $this->igv = 0;
-        $this->inafecto = 0; // Monto de ítems inafectos
+        $this->inafecto = 0;
         $this->total = 0;
-        // foreach ($this->detalles as $detalle) {
-        //     $this->subTotal += ($detalle['cantidad'] * $detalle['valorUnitario']);
-        // }
         
         foreach ($this->detalles as $index => $detalle) {
-            // Asegurarse de que los valores sean numéricos
             $cantidad = floatval($detalle['cantidad'] ?? 0);
             $valorUnitario = floatval($detalle['valorUnitario'] ?? 0);
-            $afectoIGV = (bool)($detalle['afectoIgv'] ?? true); // Por defecto true si no está definido
+            $afectoIGV = (bool)($detalle['afectoIgv'] ?? true);
             
             $subtotalLinea = $cantidad * $valorUnitario;
 
             if ($afectoIGV) {
-                // Si la línea está afecta al IGV
-                $this->subTotal += $subtotalLinea; // Suma a la base gravada
-                $this->igv += $subtotalLinea * $this->tasaIGV; // Calcula el IGV de esta línea
+                $this->subTotal += $subtotalLinea;
+                $this->igv += $subtotalLinea * $this->tasaIGV;
             } else {
-                // Si la línea es inafecta al IGV
-                $this->inafecto += $subtotalLinea; // Suma al total inafecto
+                $this->inafecto += $subtotalLinea;
             }
         }
 
-        // El total general es la suma de la base gravada + inafecto + IGV
         $this->total = $this->subTotal + $this->inafecto + $this->igv;
 
-        // Redondear a 2 decimales para evitar problemas de precisión de flotantes
         $this->subTotal = round($this->subTotal, 2);
         $this->igv = round($this->igv, 2);
         $this->inafecto = round($this->inafecto, 2);
@@ -200,11 +202,8 @@ class EditCompra extends Component
         $this->totalLetras = "Son " . number_format($this->total, 2) . " " . ($this->monedas[$this->moneda] ?? '') . " y 00/100";
     }
 
-    // --- Métodos para el Modal de Detalle ---
-
     public function openAddDetalleModal()
     {
-        // Inicializar el detalle para el modal con valores por defecto y sin ID
         $this->currentDetalle = [
             'id'            => null,
             'cantidad'      => 1,
@@ -214,7 +213,7 @@ class EditCompra extends Component
             'afectoIgv'     => true,
             'estado'        => 1,
         ];
-        $this->editingDetalleIndex = null; // No estamos editando un detalle existente
+        $this->editingDetalleIndex = null;
         $this->resetErrorBag('currentDetalle.*');
         $this->showDetalleModal = true;
         $this->emit('show-detalle-modal');
@@ -222,19 +221,17 @@ class EditCompra extends Component
 
     public function openEditDetalleModal($index)
     {
-        // Cargar el detalle seleccionado en currentDetalle para edición
         $this->currentDetalle = $this->detalles[$index];
-        $this->editingDetalleIndex = $index; // Guardar el índice del detalle que se está editando
+        $this->editingDetalleIndex = $index;
         $this->resetErrorBag('currentDetalle.*');
         $this->showDetalleModal = true;
         $this->emit('show-detalle-modal');
     }
 
-
     public function closeDetalleModal()
     {
         $this->showDetalleModal = false;
-        $this->reset(['currentDetalle', 'editingDetalleIndex']); // Resetear currentDetalle y su índice
+        $this->reset(['currentDetalle', 'editingDetalleIndex']);
         $this->emit('hide-detalle-modal');
     }
 
@@ -243,26 +240,22 @@ class EditCompra extends Component
         $this->validate($this->currentDetalleRules);
 
         if ($this->editingDetalleIndex !== null) {
-            // Actualizar un detalle existente
             $this->detalles[$this->editingDetalleIndex] = $this->currentDetalle;
         } else {
-            // Añadir un nuevo detalle
             $this->detalles[] = $this->currentDetalle;
         }
 
         $this->calculateTotals();
-        $this->closeDetalleModal(); // Cerrar el modal después de guardar/actualizar
+        $this->closeDetalleModal();
     }
 
     public function removeDetalle($index)
     {
         unset($this->detalles[$index]);
-        $this->detalles = array_values($this->detalles); // Reindexar el array
+        $this->detalles = array_values($this->detalles);
         $this->calculateTotals();
     }
 
-    // Este método ya no es estrictamente necesario si la edición se hace vía modal
-    // pero lo mantenemos por si hay algún otro tipo de actualización
     public function updateDetalleFromChild($updatedItem, $index)
     {
         if (isset($this->detalles[$index])) {
@@ -286,8 +279,6 @@ class EditCompra extends Component
         }
     }
 
-    // --- Método para actualizar la compra completa ---
-
     public function updateCompra()
     {
         if (empty($this->detalles)) {
@@ -301,21 +292,17 @@ class EditCompra extends Component
         DB::beginTransaction();
 
         try {
-            // Manejo de la subida del PDF
-            $pdfPath = $this->pdf_path_existente; // Mantener el existente por defecto
+            $pdfPath = $this->pdf_path_existente;
 
-            if ($this->pdfFile) { // Si se sube un nuevo archivo PDF
-                // Si ya existe un PDF anterior, lo eliminamos
+            if ($this->pdfFile) {
                 if ($this->pdf_path_existente && Storage::disk('public')->exists($this->pdf_path_existente)) {
                     Storage::disk('public')->delete($this->pdf_path_existente);
                 }
-                // Guardar el nuevo PDF
                 $pdfPath = $this->pdfFile->store('compras_pdfs', 'public');
-            } else if ($this->pdf_path_existente === null && $compra->pdf_path) {
+            } else if ($this->pdf_path_existente === null && $this->compra->pdf_path) {
                 $pdfPath = null;
             }
             
-            // Actualizar la compra principal
             $this->compra->update([
                 'tipoDocumento'      => $this->tipoDocumento,
                 'serie'              => $this->serie,
@@ -333,26 +320,24 @@ class EditCompra extends Component
                 'totalLetras'        => $this->totalLetras,
                 'observacion'        => $this->observacion,
                 'pdf_path'           => $pdfPath,
-                // Mantener el estado actual a menos que haya una lógica específica para cambiarlo
-                // 'estado'             => $this->compra->estado,
                 'usuarioModificacion' => Auth::id(),
+                // <-- NUEVO: Guardar los nuevos campos en la base de datos
+                'idCuentaContable'   => $this->idCuentaContable,
+                'idSubdiario'        => $this->idSubdiario,
+                'numero_constancia_detraccion' => $this->numero_constancia_detraccion,
+                'fecha_pago_detraccion' => $this->fecha_pago_detraccion,
             ]);
 
-            // 1. Obtener los IDs de los detalles actuales en la base de datos
             $existingDetailIds = $this->compra->detalles->pluck('id')->toArray();
-            // 2. Obtener los IDs de los detalles que vienen del formulario (los que tienen ID)
             $submittedDetailIds = collect($this->detalles)->whereNotNull('id')->pluck('id')->toArray();
 
-            // 3. Detalles a eliminar (los que estaban en DB pero no en el formulario)
             $detailsToDelete = array_diff($existingDetailIds, $submittedDetailIds);
             if (!empty($detailsToDelete)) {
                 CompraDetalle::whereIn('id', $detailsToDelete)->delete();
             }
 
-            // 4. Procesar los detalles del formulario
             foreach ($this->detalles as $detalleData) {
                 if (isset($detalleData['id'])) {
-                    // Actualizar detalle existente
                     $detalle = CompraDetalle::find($detalleData['id']);
                     if ($detalle) {
                         $detalle->update([
@@ -361,33 +346,30 @@ class EditCompra extends Component
                             'descripcion'   => $detalleData['descripcion'],
                             'valorUnitario' => $detalleData['valorUnitario'],
                             'afectoIgv'     => $detalleData['afectoIgv'],
-                            'estado'        => $detalleData['estado'] ?? 1, // Mantener estado o predefinir
+                            'estado'        => $detalleData['estado'] ?? 1,
                         ]);
                     }
                 } else {
-                    // Crear nuevo detalle
                     $this->compra->detalles()->create([
                         'cantidad'      => $detalleData['cantidad'],
                         'unidadMedida'  => $detalleData['unidadMedida'],
                         'descripcion'   => $detalleData['descripcion'],
                         'valorUnitario' => $detalleData['valorUnitario'],
                         'afectoIgv'     => $detalleData['afectoIgv'],
-                        'estado'        => $detalleData['estado'] ?? 1, // Predefinir estado
+                        'estado'        => $detalleData['estado'] ?? 1,
                     ]);
                 }
             }
 
-
             DB::commit();
 
             session()->flash('message', '¡Compra actualizada exitosamente!');
-            // Redirigir al listado de compras después de editar
             return redirect()->route('listaCompras');
 
         } catch (\Exception $e) {
             DB::rollBack();
             session()->flash('error', 'Hubo un error al actualizar la compra: ' . $e->getMessage());
-            \Log::error('Error al actualizar compra: ' . $e->getMessage());
+            Log::error('Error al actualizar compra: ' . $e->getMessage());
         }
     }
 
@@ -395,11 +377,12 @@ class EditCompra extends Component
     {
         if ($this->pdf_path_existente && Storage::disk('public')->exists($this->pdf_path_existente)) {
             Storage::disk('public')->delete($this->pdf_path_existente);
-            $this->pdf_path_existente = null; // Limpiar la propiedad
-            $this->pdfFile = null; // Asegurarse de que no quede un archivo temporal
-            // Actualizar la base de datos inmediatamente
-            if ($this->compraId) {
-                $compra = Compra::find($this->compraId);
+            $this->pdf_path_existente = null;
+            $this->pdfFile = null;
+            
+            // <-- CORRECCIÓN: Usar $this->compra->id en lugar de $this->compraId
+            if ($this->compra && $this->compra->id) {
+                $compra = Compra::find($this->compra->id);
                 if ($compra) {
                     $compra->pdf_path = null;
                     $compra->save();
@@ -412,10 +395,12 @@ class EditCompra extends Component
     public function render()
     {
         return view('livewire.compras.edit-compra', [
-            'tiposDocumento' => $this->tiposDocumento,
-            'proveedores'    => $this->proveedores,
-            'clientes'       => $this->clientes,
-            'estados'        => $this->estados,
+            'tiposDocumento'   => $this->tiposDocumento,
+            'proveedores'      => $this->proveedores,
+            'clientes'         => $this->clientes,
+            'estados'          => $this->estados,
+            'cuentasContables' => $this->cuentasContables, // <-- NUEVO
+            'subdiarios'       => $this->subdiarios,        // <-- NUEVO
         ]);
     }
 }

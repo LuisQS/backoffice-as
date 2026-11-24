@@ -121,24 +121,24 @@ class ConcarExportService
     }
 
     private function addFacturaSimple($subDiario, $numComp, $fechaComp, $moneda, $glosa,
-        $tipoCambio, $tipoConv, $flagConv, $fechaTC, $cuentaGasto, $ruc, $tipoDoc, $numDoc,
-        $fechaDoc, $fechaVenc, $glosaDetalle, $subtotal, $igv, $total): void
+    $tipoCambio, $tipoConv, $flagConv, $fechaTC, $cuentaGasto, $ruc, $tipoDoc, $numDoc,
+    $fechaDoc, $fechaVenc, $glosaDetalle, $subtotal, $igv, $total): void
     {
-        // Línea 1: Gasto en el DEBE (CON TASA IGV 18%)
+        // Línea 1: Gasto en el DEBE (SIN tasa IGV)
         $this->addRow([
             $subDiario, $numComp, $fechaComp, $moneda, $glosa, $tipoCambio, $tipoConv, $flagConv,
             $fechaTC, $cuentaGasto, $ruc, '100', 'D', $subtotal, 0, 0,
-            $tipoDoc, $numDoc, $fechaDoc, '', '', $glosaDetalle, '', '', '', '', '', '', '', '18', '', '', '', '', '', ''
-        ]);
-
-        // Línea 2: IGV en el DEBE
-        $this->addRow([
-            $subDiario, $numComp, $fechaComp, $moneda, $glosa, $tipoCambio, $tipoConv, $flagConv,
-            $fechaTC, self::CUENTA_IGV, '', '0', 'D', $igv, 0, 0,
             $tipoDoc, $numDoc, $fechaDoc, '', '', $glosaDetalle, '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
         ]);
 
-        // Línea 3: Cuenta por Pagar en el HABER
+        // Línea 2: IGV en el DEBE (CON tasa IGV 18%) ← AQUÍ VA LA TASA
+        $this->addRow([
+            $subDiario, $numComp, $fechaComp, $moneda, $glosa, $tipoCambio, $tipoConv, $flagConv,
+            $fechaTC, self::CUENTA_IGV, '', '0', 'D', $igv, 0, 0,
+            $tipoDoc, $numDoc, $fechaDoc, '', '', $glosaDetalle, '', '', '', '', '', '', '', '18', '', '', '', '', '', ''
+        ]);
+
+        // Línea 3: Cuenta por Pagar en el HABER (421202 - con fecha de vencimiento)
         $this->addRow([
             $subDiario, $numComp, $fechaComp, $moneda, $glosa, $tipoCambio, $tipoConv, $flagConv,
             $fechaTC, self::CUENTA_POR_PAGAR, $ruc, '0', 'H', $total, 0, 0,
@@ -147,38 +147,38 @@ class ConcarExportService
     }
 
     private function addFacturaConDetraccion($subDiario, $numComp, $fechaComp, $moneda, $glosa,
-        $tipoCambio, $tipoConv, $flagConv, $fechaTC, $cuentaGasto, $ruc, $tipoDoc, $numDoc,
-        $fechaDoc, $fechaVenc, $glosaDetalle, $subtotal, $igv, $total, $detraccion): void
+    $tipoCambio, $tipoConv, $flagConv, $fechaTC, $cuentaGasto, $ruc, $tipoDoc, $numDoc,
+    $fechaDoc, $fechaVenc, $glosaDetalle, $subtotal, $igv, $total, $detraccion): void
     {
-        // Línea 1: Gasto en el DEBE (CON TASA IGV 18%)
+        // Línea 1: Gasto en el DEBE (SIN tasa IGV)
         $this->addRow([
             $subDiario, $numComp, $fechaComp, $moneda, $glosa, $tipoCambio, $tipoConv, $flagConv,
             $fechaTC, $cuentaGasto, $ruc, '100', 'D', $subtotal, 0, 0,
-            $tipoDoc, $numDoc, $fechaDoc, '', '', $glosaDetalle, '', '', '', '', '', '', '', '18', '', '', '', '', '', ''
-        ]);
-
-        // Línea 2: IGV en el DEBE
-        $this->addRow([
-            $subDiario, $numComp, $fechaComp, $moneda, $glosa, $tipoCambio, $tipoConv, $flagConv,
-            $fechaTC, self::CUENTA_IGV, '', '0', 'D', $igv, 0, 0,
             $tipoDoc, $numDoc, $fechaDoc, '', '', $glosaDetalle, '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
         ]);
 
-        // Línea 3: Cuenta por Pagar en el HABER (total)
+        // Línea 2: IGV en el DEBE (CON tasa IGV 18%) ← AQUÍ VA LA TASA
+        $this->addRow([
+            $subDiario, $numComp, $fechaComp, $moneda, $glosa, $tipoCambio, $tipoConv, $flagConv,
+            $fechaTC, self::CUENTA_IGV, '', '0', 'D', $igv, 0, 0,
+            $tipoDoc, $numDoc, $fechaDoc, '', '', $glosaDetalle, '', '', '', '', '', '', '', '18', '', '', '', '', '', ''
+        ]);
+
+        // Línea 3: Cuenta por Pagar en el HABER (421202 - con fecha de vencimiento)
         $this->addRow([
             $subDiario, $numComp, $fechaComp, $moneda, $glosa, $tipoCambio, $tipoConv, $flagConv,
             $fechaTC, self::CUENTA_POR_PAGAR, $ruc, '0', 'H', $total, 0, 0,
             $tipoDoc, $numDoc, $fechaDoc, $fechaVenc, '', $glosaDetalle, '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
         ]);
 
-        // Línea 4: Ajuste de Detracción en el DEBE
+        // Línea 4: Ajuste de Detracción en el DEBE (421202 - también debe tener fecha de vencimiento)
         $this->addRow([
             $subDiario, $numComp, $fechaComp, $moneda, $glosa, $tipoCambio, $tipoConv, $flagConv,
             $fechaTC, self::CUENTA_POR_PAGAR, $ruc, '0', 'D', $detraccion, 0, 0,
-            $tipoDoc, $numDoc, $fechaDoc, '', '', $glosaDetalle, '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+            $tipoDoc, $numDoc, $fechaDoc, $fechaVenc, '', $glosaDetalle, '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
         ]);
 
-        // Línea 5: Cuenta de Detracción por Pagar en el HABER
+        // Línea 5: Cuenta de Detracción por Pagar en el HABER (421203 - con fecha de vencimiento)
         $this->addRow([
             $subDiario, $numComp, $fechaComp, $moneda, $glosa, $tipoCambio, $tipoConv, $flagConv,
             $fechaTC, self::CUENTA_DETRACCION, $ruc, '0', 'H', $detraccion, 0, 0,
@@ -187,17 +187,17 @@ class ConcarExportService
     }
 
     private function addFacturaSinIgv($subDiario, $numComp, $fechaComp, $moneda, $glosa,
-        $tipoCambio, $tipoConv, $flagConv, $fechaTC, $cuentaGasto, $ruc, $tipoDoc, $numDoc,
-        $fechaDoc, $fechaVenc, $glosaDetalle, $total): void
+    $tipoCambio, $tipoConv, $flagConv, $fechaTC, $cuentaGasto, $ruc, $tipoDoc, $numDoc,
+    $fechaDoc, $fechaVenc, $glosaDetalle, $total): void
     {
-        // Línea 1: Gasto en el DEBE (SIN IGV, tasa vacía o 0)
+        // Línea 1: Gasto en el DEBE (SIN IGV)
         $this->addRow([
             $subDiario, $numComp, $fechaComp, $moneda, $glosa, $tipoCambio, $tipoConv, $flagConv,
             $fechaTC, $cuentaGasto, $ruc, '100', 'D', $total, 0, 0,
             $tipoDoc, $numDoc, $fechaDoc, '', '', $glosaDetalle, '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
         ]);
 
-        // Línea 2: Cuenta por Pagar en el HABER
+        // Línea 2: Cuenta por Pagar en el HABER (421202 - con fecha de vencimiento)
         $this->addRow([
             $subDiario, $numComp, $fechaComp, $moneda, $glosa, $tipoCambio, $tipoConv, $flagConv,
             $fechaTC, self::CUENTA_POR_PAGAR, $ruc, '0', 'H', $total, 0, 0,

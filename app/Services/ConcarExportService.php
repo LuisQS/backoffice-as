@@ -135,7 +135,7 @@ class ConcarExportService
         $this->addRow([
             $subDiario, $numComp, $fechaComp, $moneda, $glosa, $tipoCambio, $tipoConv, $flagConv,
             $fechaTC, self::CUENTA_IGV, '', '0', 'D', $igv, 0, 0,
-            $tipoDoc, $numDoc, $fechaDoc, '', '', $glosaDetalle, '', '', '', '', '', '', '', '18', '', '', '', '', '', ''
+            $tipoDoc, $numDoc, $fechaDoc, '', '', $glosaDetalle, '', '', '', '', '', '', '', 18, '', '', '', '', '', ''
         ]);
 
         // Línea 3: Cuenta por Pagar en el HABER (421202 - con fecha de vencimiento)
@@ -161,7 +161,7 @@ class ConcarExportService
         $this->addRow([
             $subDiario, $numComp, $fechaComp, $moneda, $glosa, $tipoCambio, $tipoConv, $flagConv,
             $fechaTC, self::CUENTA_IGV, '', '0', 'D', $igv, 0, 0,
-            $tipoDoc, $numDoc, $fechaDoc, '', '', $glosaDetalle, '', '', '', '', '', '', '', '18', '', '', '', '', '', ''
+            $tipoDoc, $numDoc, $fechaDoc, '', '', $glosaDetalle, '', '', '', '', '', '', '', 18, '', '', '', '', '', ''
         ]);
 
         // Línea 3: Cuenta por Pagar en el HABER (421202 - con fecha de vencimiento)
